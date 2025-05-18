@@ -206,8 +206,13 @@ app.whenReady().then(() => {
       row["Engine on"] = excelFractionToHMS(row["Engine on"]);
     }
 
-    // Write the combined stop report output
-    const outputPath = path.join(__dirname, "combinedStopReport.xlsx");
+    // Set the output path (using the date to avoid accidentally overriding)
+    const currentDateTime = new Date().toISOString().replace(/[:.]/g, "-");
+    const outputPath = path.join(
+      app.getPath("downloads"),
+      `combinedStopsReport-${currentDateTime}.xlsx`
+    );
+
     writeCombinedDataToFile(combinedData, outputPath);
   };
 
@@ -297,8 +302,13 @@ app.whenReady().then(() => {
       }
     }
 
-    // Write the combined stop report output
-    const outputPath = path.join(__dirname, "combinedWorkTimesReport.xlsx");
+    // Set the output path (using the date to avoid accidentally overriding)
+    const currentDateTime = new Date().toISOString().replace(/[:.]/g, "-");
+    const outputPath = path.join(
+      app.getPath("downloads"),
+      `combinedWorkTimesReport-${currentDateTime}.xlsx`
+    );
+
     writeCombinedDataToFile(combinedData, outputPath);
   };
 
@@ -307,9 +317,9 @@ app.whenReady().then(() => {
     stopsReportfilePath: string,
     workTimesReportfilePath: string
   ) => {
-    // Set the paths
-    const stopsReportExtractPath = "stopsReport";
-    const workTimesExtractPath = "workTimesReport";
+    // Set the paths the the user data directory. This will get overwritten everytime the app runs and so should not cause an issue
+    const stopsReportExtractPath = path.join(app.getPath("userData"), "stopsReport");
+    const workTimesExtractPath = path.join(app.getPath("userData"), "workTimesReport");
 
     // Delete the files already in the extract directory
     await deleteDir(stopsReportExtractPath);
