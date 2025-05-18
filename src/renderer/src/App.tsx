@@ -72,7 +72,6 @@ function App(): React.JSX.Element {
       } else {
         setMessage(response.error);
       }
-
       setIsLoading(false);
     };
 
@@ -122,7 +121,7 @@ function App(): React.JSX.Element {
         )}
 
         <div className="flex-row mt-3">
-          <Button disabled={isLoading}>
+          <Button type="submit" disabled={isLoading}>
             {isLoading ? (
               <span className="flex items-center gap-2">
                 <FaSpinner className="animate-spin" />

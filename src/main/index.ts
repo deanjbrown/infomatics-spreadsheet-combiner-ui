@@ -217,8 +217,8 @@ app.whenReady().then(() => {
       _1: "Licence plate",
       _2: "Vehicle",
       _3: "Vehicle Title",
-      _4: "Total Driving Time",
-      _5: "Distance"
+      _4: "Total Driving Time"
+      // _5: "Distance"
     };
 
     return data.map((row) => {
@@ -276,9 +276,15 @@ app.whenReady().then(() => {
       }
     }
 
-    // Remove the unecessary last two columns
+    // Remove the unecessary data
     combinedData = combinedData.map((row) => {
-      const { "Driving time_1": _, Distance_1: __, "Total Driving Time": ___, ...rest } = row;
+      const {
+        "Driving time_1": _,
+        "Total Driving Time": __,
+        _5: ___,
+        Distance_1: ____,
+        ...rest
+      } = row;
       return rest;
     });
 
