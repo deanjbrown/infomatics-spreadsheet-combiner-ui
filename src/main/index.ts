@@ -91,20 +91,94 @@ app.whenReady().then(() => {
       await fs.promises.mkdir(outputPath, { recursive: true }); // Ensure output dir exists
 
       return new Promise((resolve, reject) => {
+        const sanitizePathSegment = (segment: string): string => {
+          const replaced = segment.replace(/[<>:"/\\|?*]/g, "_").replace(/[. ]+$/g, "");
+          return replaced.length === 0 ? "_" : replaced;
+        };
+
+        const sanitizeZipPath = (zipPath: string): string => {
+          const parts = zipPath.split(/[\\/]+/).filter(Boolean).map(sanitizePathSegment);
+          return parts.join(path.sep);
+        };
+
         const readStream = fs.createReadStream(inputFile);
-        const extractStream = unzipper.Extract({ path: outputPath });
+        const extractStream = unzipper.Parse();
+        const entryPromises: Promise<void>[] = [];
+        let hadError = false;
 
-        readStream.pipe(extractStream);
+        readStream.on("error", (err) => {
+          hadError = true;
+          console.error("Unzip failed:", err);
+          resolve(false);
+        });
 
-        extractStream.on("close", () => {
-          console.log("Unzipped successfully to", outputPath);
-          resolve(true);
+        extractStream.on("entry", (entry) => {
+          const sanitizedRelativePath = sanitizeZipPath(entry.path);
+          if (!sanitizedRelativePath) {
+            entry.autodrain();
+            return;
+          }
+
+          const destinationPath = path.resolve(outputPath, sanitizedRelativePath);
+          if (!destinationPath.startsWith(path.resolve(outputPath))) {
+            hadError = true;
+            console.error("Skipped unsafe zip entry path:", entry.path);
+            entry.autodrain();
+            return;
+          }
+
+          if (entry.type === "Directory") {
+            entryPromises.push(
+              fs.promises
+                .mkdir(destinationPath, { recursive: true })
+                .then(() => entry.autodrain())
+                .catch((err) => {
+                  hadError = true;
+                  console.error("Unzip failed:", err);
+                  entry.autodrain();
+                })
+            );
+            return;
+          }
+
+          entryPromises.push(
+            fs.promises
+              .mkdir(path.dirname(destinationPath), { recursive: true })
+              .then(
+                () =>
+                  new Promise<void>((entryResolve) => {
+                    const writeStream = fs.createWriteStream(destinationPath);
+                    writeStream.on("error", (err) => {
+                      hadError = true;
+                      console.error("Unzip failed:", err);
+                      entryResolve();
+                    });
+                    writeStream.on("finish", () => entryResolve());
+                    entry.pipe(writeStream);
+                  })
+              )
+              .catch((err) => {
+                hadError = true;
+                console.error("Unzip failed:", err);
+                entry.autodrain();
+              })
+          );
         });
 
         extractStream.on("error", (err) => {
           console.error("Unzip failed:", err);
-          reject(false);
+          hadError = true;
         });
+
+        extractStream.on("close", async () => {
+          await Promise.allSettled(entryPromises);
+          if (!hadError) {
+            console.log("Unzipped successfully to", outputPath);
+          }
+          resolve(!hadError);
+        });
+
+        readStream.pipe(extractStream);
       });
     } catch (error) {
       console.log("An error occurred:", error);
@@ -338,6 +412,7 @@ app.whenReady().then(() => {
         success: false,
         error: "Issue unzipping the files"
       });
+      return;
     }
 
     // Combine stop reports
